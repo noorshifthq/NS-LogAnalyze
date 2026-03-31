@@ -53,7 +53,7 @@
             primaryModelId,
             secondaryModelId,
             SKIP_CLEANER_THRESHOLD
-        } from './engine/logic/ai/ai_logic.js';
+        } from './engine/logic/ai/ai_logic.js?v=1.0.1';
 
         const filterWorker = new Worker('log-filter-worker.js');
 
@@ -120,6 +120,12 @@
         const analysisProgressBar = document.getElementById('analysis-progress');
         const analysisProgressLabel = document.getElementById('analysis-progress-label');
 
+        // Disable the Analyze button initially while the model loads
+        analyzeBtn.disabled = true;
+        analyzeBtn.style.opacity = '0.6';
+        analyzeBtn.style.cursor = 'not-allowed';
+        analyzeBtn.textContent = 'Loading Model...';
+
         // --- Check for local server ---
         if (window.location.protocol === 'file:') {
             const container = document.querySelector('.container');
@@ -141,44 +147,58 @@
         }
 
         // --- UI Element Handlers ---
-        document.addEventListener('DOMContentLoaded', () => {
-            // Initialize the AI Logic module with UI references and callbacks
-            initAILogic(
-                { // uiRefs
-                    activeLlmDisplay: activeLlmDisplay,
-                    analysisOutput: analysisOutput,
-                    modelProgressContainer: modelProgressContainer,
-                    modelProgressBar: modelProgressBar,
-                    modelProgressText: modelProgressText,
-                    modelProgressLabel: modelProgressLabel,
-                },
-                { // uiCallbacks
-                    updateAnalysisProgress: updateAnalysisProgress,
-                    updateDropdownStyles: updateDropdownStyles,
+        // Initialize the AI Logic module with UI references and callbacks
+        initAILogic(
+            { // uiRefs
+                activeLlmDisplay: activeLlmDisplay,
+                analysisOutput: analysisOutput,
+                modelProgressContainer: modelProgressContainer,
+                modelProgressBar: modelProgressBar,
+                modelProgressText: modelProgressText,
+                modelProgressLabel: modelProgressLabel,
+            },
+            { // uiCallbacks
+                updateAnalysisProgress: updateAnalysisProgress,
+                updateDropdownStyles: updateDropdownStyles,
+                setAnalyzeButtonState: (isReady, errorMsg) => {
+                    if (isReady) {
+                        analyzeBtn.disabled = false;
+                        analyzeBtn.style.opacity = '1';
+                        analyzeBtn.style.cursor = 'pointer';
+                        analyzeBtn.textContent = 'Analyze';
+                        analysisOutput.style.color = ''; // Reset text color
+                    } else {
+                        analyzeBtn.disabled = true;
+                        analyzeBtn.textContent = 'Load Failed';
+                        if (errorMsg) {
+                            analysisOutputContainer.style.display = 'block';
+                            analysisOutput.style.color = '#ff5555';
+                            analysisOutput.textContent = `Model Loading Failed:\n${errorMsg}\n\nTroubleshooting Steps:\n1. Press F12 and check the Console tab for a 404 or Network Error.\n2. Ensure your Hugging Face repo is set to PUBLIC.\n3. Make sure you are using Chrome or Edge (WebGPU is required).`;
+                        }
+                    }
                 }
-            );
+            }
+        );
 
-            // Populate dropdown
-            const modelSelector = document.getElementById('model-selector');
-            const primaryOption = document.createElement('option');
-            primaryOption.value = primaryModelId;
-            primaryOption.textContent = 'Qwen2.5-0.5B (Fast)';
-            modelSelector.appendChild(primaryOption);
+        // Populate dropdown
+        const primaryOption = document.createElement('option');
+        primaryOption.value = primaryModelId;
+        primaryOption.textContent = 'Qwen2.5-0.5B (Fast)';
+        modelSelector.appendChild(primaryOption);
 
-            const secondaryOption = document.createElement('option');
-            secondaryOption.value = secondaryModelId;
-            secondaryOption.textContent = 'Llama-3.2-1B (Upgraded)';
-            modelSelector.appendChild(secondaryOption);
+        const secondaryOption = document.createElement('option');
+        secondaryOption.value = secondaryModelId;
+        secondaryOption.textContent = 'Llama-3.2-1B (Upgraded)';
+        modelSelector.appendChild(secondaryOption);
 
-            // Start loading primary model in the background
-            initializeLLMEngine();
-        });
+        // Start loading primary model in the background
+        initializeLLMEngine();
 
         // --- Button Event Handlers ---
 
         // Analyze Button
         analyzeBtn.addEventListener('click', async () => { // Made async to await LLM operations
-            const content = logConsole.value;
+            let content = logConsole.value;
             if (!content) {
                 alert("Console is empty. Paste your log content to analyze.");
                 return;
@@ -194,13 +214,12 @@
                 content = lines.join('\n');
                 const confirmationMessage = `The log content is too large (${originalLines.toLocaleString()} lines) and has been truncated to the first ${MAX_LINES.toLocaleString()} lines. Do you want to proceed with the analysis of the truncated content?`;
                 if (!confirm(confirmationMessage)) {
-                    updateStatus("Analysis cancelled by user.");
                     return;
                 }
             }
 
             if (!getLLMEngine()) {
-                alert("The primary LLM is still loading or has failed. Please select another model from the dropdown.");
+                alert("The AI model is currently downloading or initializing in the background. Please wait for the progress bar to finish before analyzing logs.");
                 return;
             }
 

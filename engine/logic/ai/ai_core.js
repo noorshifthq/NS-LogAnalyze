@@ -7,6 +7,22 @@ import { state, ui } from './ai_state.js';
  */
 async function loadEngine(modelId, progressCallback) {
     console.log(`Attempting to load ${modelId} from Hugging Face...`);
+
+    // PRE-FLIGHT CHECK: Verify the Hugging Face URL is reachable before Web-LLM crashes the Cache API.
+    const modelConfig = config.appConfig.model_list.find(m => m.model_id === modelId);
+    if (modelConfig) {
+        const testUrl = `${modelConfig.model}mlc-chat-config.json`;
+        try {
+            const response = await fetch(testUrl, { method: 'HEAD' });
+            if (!response.ok) {
+                throw new Error(`Repository 404 Not Found.\nWe looked for: ${testUrl}\nPlease ensure your files are in this exact folder structure on Hugging Face!`);
+            }
+        } catch (err) {
+            if (err.message.includes('404')) throw err;
+            throw new Error(`Network Error: Could not connect to Hugging Face. Is the repository Private?`);
+        }
+    }
+
     return await CreateMLCEngine(modelId, { 
         initProgressCallback: progressCallback,
         appConfig: config.appConfig
@@ -20,6 +36,7 @@ async function loadEngine(modelId, progressCallback) {
 export async function initializeLLMEngine() {
     if (state.llmEngineLoaded) {
         console.log(`LLM engine with model ${state.activeModelId} is already loaded.`);
+        if (ui.setAnalyzeButtonStateCallback) ui.setAnalyzeButtonStateCallback(true);
         return true;
     }
     if (state.isLLMEngineLoading) {
@@ -54,6 +71,7 @@ export async function initializeLLMEngine() {
 
         success = true;
         if (ui.modelProgressContainerRef) ui.modelProgressContainerRef.style.display = 'none';
+        if (ui.setAnalyzeButtonStateCallback) ui.setAnalyzeButtonStateCallback(true);
     } catch (primaryError) {
         console.error(`Failed to load primary LLM engine:`, primaryError);
         console.log(`Failed to load primary LLM (${config.primaryModelId}). Attempting fallback LLM: ${config.secondaryModelId}...`);
@@ -78,6 +96,7 @@ export async function initializeLLMEngine() {
             if (ui.updateDropdownStylesCallback) ui.updateDropdownStylesCallback();
             success = true;
             if (ui.modelProgressContainerRef) ui.modelProgressContainerRef.style.display = 'none';
+            if (ui.setAnalyzeButtonStateCallback) ui.setAnalyzeButtonStateCallback(true);
         } catch (fallbackError) {
             console.error("Failed to load fallback LLM engine:", fallbackError);
             let errorMessage = `Error loading any LLM engine.\n\n`;
@@ -91,6 +110,7 @@ export async function initializeLLMEngine() {
             state.isLLMEngineLoading = false;
             if (ui.activeLlmDisplayRef) { ui.activeLlmDisplayRef.textContent = `Model loading failed for both ${config.primaryModelId} and ${config.secondaryModelId}`; }
             if (ui.modelProgressContainerRef) ui.modelProgressContainerRef.style.display = 'none';
+            if (ui.setAnalyzeButtonStateCallback) ui.setAnalyzeButtonStateCallback(false, fallbackError.message || fallbackError);
             return false;
         }
     }

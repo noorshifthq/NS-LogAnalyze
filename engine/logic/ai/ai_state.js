@@ -17,6 +17,7 @@ export const state = {
 export const ui = {
     updateAnalysisProgressCallback: null,
     updateDropdownStylesCallback: null,
+    setAnalyzeButtonStateCallback: null,
     activeLlmDisplayRef: null,
     analysisOutputRef: null,
     modelProgressContainerRef: null,
@@ -38,6 +39,7 @@ export function initAILogic(uiRefs, uiCallbacks) {
 
     ui.updateAnalysisProgressCallback = uiCallbacks.updateAnalysisProgress;
     ui.updateDropdownStylesCallback = uiCallbacks.updateDropdownStyles;
+    ui.setAnalyzeButtonStateCallback = uiCallbacks.setAnalyzeButtonState;
 
     console.log(`Configured to use ${config.primaryModelId} as primary and ${config.secondaryModelId} as secondary.`);
 }
