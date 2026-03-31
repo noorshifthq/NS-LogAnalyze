@@ -6,14 +6,14 @@ export const secondaryModelId = "Llama-3.2-1B-Instruct-q4f32_1-MLC"; // Llama-3.
 export const appConfig = {
     "model_list": [
         {
-            "model_url": `https://huggingface.co/noorshifthq/${primaryModelId}/`,
+            "model_url": `https://huggingface.co/noorshifthq/${primaryModelId}/resolve/main/`,
             "model_id": primaryModelId,
-            "local_id": primaryModelId
+            "local_id": `${primaryModelId}-custom`
         },
         {
-            "model_url": `https://huggingface.co/noorshifthq/${secondaryModelId}/`,
+            "model_url": `https://huggingface.co/noorshifthq/${secondaryModelId}/resolve/main/`,
             "model_id": secondaryModelId,
-            "local_id": secondaryModelId
+            "local_id": `${secondaryModelId}-custom`
         }
     ],
 };
