@@ -7,7 +7,10 @@ import { state, ui } from './ai_state.js';
  */
 async function loadEngine(modelId, progressCallback) {
     console.log(`Attempting to load ${modelId} from Hugging Face...`);
-    return await CreateMLCEngine(modelId, { initProgressCallback: progressCallback }, config.appConfig);
+    return await CreateMLCEngine(modelId, { 
+        initProgressCallback: progressCallback,
+        appConfig: config.appConfig
+    });
 }
 
 /**
