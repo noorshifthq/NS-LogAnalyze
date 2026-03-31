@@ -6,14 +6,17 @@ export const secondaryModelId = "Llama-3.2-1B-Instruct-q4f32_1-MLC"; // Llama-3.
 export const localAppConfig = {
     "model_list": [
         {
+            "model_url": `engine/core/${primaryModelId}`,
+            "local_id": `${primaryModelId}-local`,
            // "model_url": `engine/core/${primaryModelId}`,
           //  "local_id": `${primaryModelId}-local`,
             "model_url": `https://huggingface.co/mlc-ai/${primaryModelId}`,
             "model_id": primaryModelId
         },
         {
-            "model_url": `engine/core/${secondaryModelId}`,
-            "local_id": `${secondaryModelId}-local`,
+            //"model_url": `engine/core/${secondaryModelId}`,
+           // "local_id": `${secondaryModelId}-local`,
+            "model_url": `https://huggingface.co/mlc-ai/${secondaryModelId}`,
             "model_id": secondaryModelId
         }
     ],
