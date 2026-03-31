@@ -3,19 +3,11 @@ import * as config from './ai_config.js';
 import { state, ui } from './ai_state.js';
 
 /**
- * Helper function to try loading an engine from Hugging Face first,
- * and fallback to the local deployment if it fails.
+ * Helper function to load an engine from Hugging Face.
  */
-async function loadEngineWithFallback(modelId, progressCallback) {
-    try {
-        console.log(`Attempting to load ${modelId} from Hugging Face...`);
-        return await CreateMLCEngine(modelId, { initProgressCallback: progressCallback }, config.hfAppConfig);
-    } catch (hfError) {
-        console.warn(`Hugging Face load failed for ${modelId}:`, hfError.message || hfError);
-        console.log(`Falling back to local deployment for ${modelId}...`);
-        if (ui.modelProgressLabelRef) ui.modelProgressLabelRef.textContent = `Downloading local fallback...`;
-        return await CreateMLCEngine(modelId, { initProgressCallback: progressCallback }, config.localAppConfig);
-    }
+async function loadEngine(modelId, progressCallback) {
+    console.log(`Attempting to load ${modelId} from Hugging Face...`);
+    return await CreateMLCEngine(modelId, { initProgressCallback: progressCallback }, config.appConfig);
 }
 
 /**
@@ -41,7 +33,7 @@ export async function initializeLLMEngine() {
 
     console.log(`Preparing system...`);
     try {
-        state.llmEngine = await loadEngineWithFallback(
+        state.llmEngine = await loadEngine(
             config.primaryModelId,
             (report) => {
                 const progress = (report.progress * 100);
@@ -65,7 +57,7 @@ export async function initializeLLMEngine() {
         if (ui.modelProgressLabelRef) ui.modelProgressLabelRef.textContent = 'Attempting fallback model...';
 
         try {
-            state.llmEngine = await loadEngineWithFallback(
+            state.llmEngine = await loadEngine(
                 config.secondaryModelId,
                 (report) => {
                     const progress = (report.progress * 100);
@@ -117,7 +109,7 @@ export async function loadSecondaryInBackground() {
 
     console.log(`[Background] Starting download of secondary model: ${config.secondaryModelId}...`);
     try {
-        state.secondaryLlmEngine = await loadEngineWithFallback(
+        state.secondaryLlmEngine = await loadEngine(
             config.secondaryModelId,
             (report) => {
                 const progress = (report.progress * 100);
