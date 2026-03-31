@@ -3,6 +3,22 @@ import * as config from './ai_config.js';
 import { state, ui } from './ai_state.js';
 
 /**
+ * Helper function to try loading an engine from Hugging Face first,
+ * and fallback to the local deployment if it fails.
+ */
+async function loadEngineWithFallback(modelId, progressCallback) {
+    try {
+        console.log(`Attempting to load ${modelId} from Hugging Face...`);
+        return await CreateMLCEngine(modelId, { initProgressCallback: progressCallback }, config.hfAppConfig);
+    } catch (hfError) {
+        console.warn(`Hugging Face load failed for ${modelId}:`, hfError.message || hfError);
+        console.log(`Falling back to local deployment for ${modelId}...`);
+        if (ui.modelProgressLabelRef) ui.modelProgressLabelRef.textContent = `Downloading local fallback...`;
+        return await CreateMLCEngine(modelId, { initProgressCallback: progressCallback }, config.localAppConfig);
+    }
+}
+
+/**
  * Initializes the primary LLM engine.
  * Attempts to load a fallback model if the primary fails.
  */
@@ -25,14 +41,13 @@ export async function initializeLLMEngine() {
 
     console.log(`Preparing system...`);
     try {
-        state.llmEngine = await CreateMLCEngine(
+        state.llmEngine = await loadEngineWithFallback(
             config.primaryModelId,
-            { initProgressCallback: (report) => {
+            (report) => {
                 const progress = (report.progress * 100);
                 if (ui.modelProgressBarRef) ui.modelProgressBarRef.value = progress;
                 if (ui.modelProgressTextRef) ui.modelProgressTextRef.textContent = ` ${progress.toFixed(0)}%`;
-            } },
-            config.localAppConfig
+            }
         );
         state.primaryLlmEngine = state.llmEngine;
         state.llmEngineLoaded = true;
@@ -50,14 +65,13 @@ export async function initializeLLMEngine() {
         if (ui.modelProgressLabelRef) ui.modelProgressLabelRef.textContent = 'Attempting fallback model...';
 
         try {
-            state.llmEngine = await CreateMLCEngine(
+            state.llmEngine = await loadEngineWithFallback(
                 config.secondaryModelId,
-                { initProgressCallback: (report) => {
+                (report) => {
                     const progress = (report.progress * 100);
                     if (ui.modelProgressBarRef) ui.modelProgressBarRef.value = progress;
                     if (ui.modelProgressTextRef) ui.modelProgressTextRef.textContent = ` ${progress.toFixed(0)}%`;
-                } },
-                config.localAppConfig
+                }
             );
             state.secondaryLlmEngine = state.llmEngine; // Also store as secondary
             state.isSecondaryLoaded = true;
@@ -103,15 +117,14 @@ export async function loadSecondaryInBackground() {
 
     console.log(`[Background] Starting download of secondary model: ${config.secondaryModelId}...`);
     try {
-        state.secondaryLlmEngine = await CreateMLCEngine(
+        state.secondaryLlmEngine = await loadEngineWithFallback(
             config.secondaryModelId,
-            { initProgressCallback: (report) => {
+            (report) => {
                 const progress = (report.progress * 100);
                 if (ui.modelProgressBarRef) ui.modelProgressBarRef.value = progress;
                 if (ui.modelProgressTextRef) ui.modelProgressTextRef.textContent = ` ${progress.toFixed(0)}%`;
                 console.log(`[Background] Loading ${config.secondaryModelId}: ${report.text} (${progress.toFixed(2)}%)`);
-            } },
-            config.localAppConfig
+            }
         );
         state.isSecondaryLoaded = true;
         state.isSecondaryLoading = false;

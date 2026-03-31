@@ -7,6 +7,7 @@
 export {
     primaryModelId,
     secondaryModelId,
+    hfAppConfig,
     localAppConfig,
     SKIP_CLEANER_THRESHOLD
 } from './ai_config.js';

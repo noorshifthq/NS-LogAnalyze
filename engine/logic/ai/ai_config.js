@@ -2,16 +2,32 @@
 export const primaryModelId = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC"; // Qwen2.5-0.5B as the primary LLM
 export const secondaryModelId = "Llama-3.2-1B-Instruct-q4f32_1-MLC"; // Llama-3.2 as the secondary LLM
 
-// Local Model Configuration
-export const localAppConfig = {
+// Hugging Face Configuration (Primary Attempt)
+export const hfAppConfig = {
     "model_list": [
         {
-            "model_url": `https://raw.githubusercontent.com/noorshifthq/LLMmodel/main/${primaryModelId}/`,
+            "model_url": `https://huggingface.co/mlc-ai/${primaryModelId}`,
             "model_id": primaryModelId,
             "local_id": primaryModelId
         },
         {
-            "model_url": `https://raw.githubusercontent.com/noorshifthq/LLMmodel/main/${secondaryModelId}/`,
+            "model_url": `https://huggingface.co/mlc-ai/${secondaryModelId}`,
+            "model_id": secondaryModelId,
+            "local_id": secondaryModelId
+        }
+    ],
+};
+
+// Local Fallback Configuration
+export const localAppConfig = {
+    "model_list": [
+        {
+            "model_url": `/LLMmodel/${primaryModelId}/`,
+            "model_id": primaryModelId,
+            "local_id": primaryModelId
+        },
+        {
+            "model_url": `/LLMmodel/${secondaryModelId}/`,
             "model_id": secondaryModelId,
             "local_id": secondaryModelId
         }
