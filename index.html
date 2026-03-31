@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Analyzer</title>
+    <link rel="stylesheet" href="gear/css/style.css">
+</head>
+<body>
+
+    <div class="container">
+        <h1>Dark Theme Log Analyzer</h1>
+
+        <textarea id="log-console" placeholder="> Your log content will appear here..."></textarea>
+        <div id="model-progress-container" style="display: none; margin-top: 10px; width: 100%;">
+            <label id="model-progress-label" for="model-progress" style="display: block; margin-bottom: 5px;">Preparing system...</label>
+            <progress id="model-progress" value="0" max="100" style="width: 100%;"></progress>
+            <span id="model-progress-text"></span>
+        </div>
+        <div id="analysis-progress-container" style="display: none; margin-top: 15px; width: 100%;">
+            <span id="analysis-progress-label" style="display: block; margin-bottom: 5px; color: var(--console-text); font-weight: bold;"></span>
+            <progress id="analysis-progress" value="0" max="100" style="width: 100%; height: 10px; accent-color: #00ff41;"></progress>
+        </div>
+
+        <div class="button-container" style="display: flex; align-items: center; gap: 1rem; justify-content: flex-end;">
+            <div id="model-selector-container" style="margin-right: auto; display: flex; align-items: center; gap: 10px;">
+                <label for="model-selector">LLM:</label>
+                <select id="model-selector" class="btn" style="padding-right: 30px; -webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23e0e0e0%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 10px center; background-size: 12px;">
+                    <!-- Options populated by JS -->
+                </select>
+            </div>
+             <button id="analyze-btn" class="btn btn-primary">Analyze</button>
+             <button id="clear-btn" class="btn">Clear</button>
+        </div>
+
+        <div id="analysis-output-container">
+            <h2>Analysis Result</h2>
+            <div id="active-llm-display" style="font-size: 0.9em; color: #888; margin-bottom: 10px;"></div>
+            <pre id="analysis-output"></pre>
+        </div>
+    </div>
+
+    <script type="module">
+        import {
+            initAILogic,
+            initializeLLMEngine,
+            switchActiveModel,
+            cleanLogsWithLLM,
+            getDeepAnalysisWithLLM,
+            getActiveModelId,
+            getLLMEngine,
+            isModelLoaded,
+            primaryModelId,
+            secondaryModelId,
+            SKIP_CLEANER_THRESHOLD
+        } from './engine/logic/ai/ai_logic.js';
+
+        const filterWorker = new Worker('log-filter-worker.js');
+
+        function updateDropdownStyles() {
+            const modelSelector = document.getElementById('model-selector');
+            if (!modelSelector) return;
+            const activeModelId = getActiveModelId();
+            for (const option of modelSelector.options) {
+                if (option.value === activeModelId) {
+                    option.style.fontWeight = 'bold';
+                } else {
+                    option.style.fontWeight = 'normal';
+                }
+            }
+        }
+
+        /**
+         * Sends data to the web worker for filtering.
+         * It handles a string for direct processing.
+         * @param {string} logs The log data to process.
+         * @returns {Promise<string>} A promise that resolves with the filtered log content.
+         */
+        function filterLogsWithWorker(logs) {
+            return new Promise((resolve, reject) => {
+                const onMessage = (event) => {
+                    filterWorker.removeEventListener('message', onMessage);
+                    filterWorker.removeEventListener('error', onError);
+                    if (event.data && event.data.byteLength > 0) {
+                        const decoder = new TextDecoder();
+                        resolve(decoder.decode(event.data));
+                    } else {
+                        resolve('');
+                    }
+                };
+
+                const onError = (error) => {
+                    filterWorker.removeEventListener('message', onMessage);
+                    filterWorker.removeEventListener('error', onError);
+                    reject(error);
+                };
+
+                filterWorker.addEventListener('message', onMessage);
+                filterWorker.addEventListener('error', onError);
+
+                const encoder = new TextEncoder();
+                const buffer = encoder.encode(logs).buffer;
+                filterWorker.postMessage(buffer, [buffer]);
+            });
+        }
+        // --- End AI Logic ---
+
+        const logConsole = document.getElementById('log-console');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const analysisOutputContainer = document.getElementById('analysis-output-container');
+        const analysisOutput = document.getElementById('analysis-output');
+        const activeLlmDisplay = document.getElementById('active-llm-display');
+        const modelSelector = document.getElementById('model-selector');
+        const modelProgressContainer = document.getElementById('model-progress-container');
+        const modelProgressBar = document.getElementById('model-progress');
+        const modelProgressText = document.getElementById('model-progress-text');
+        const modelProgressLabel = document.getElementById('model-progress-label');
+        const analysisProgressContainer = document.getElementById('analysis-progress-container');
+        const analysisProgressBar = document.getElementById('analysis-progress');
+        const analysisProgressLabel = document.getElementById('analysis-progress-label');
+
+        // --- Check for local server ---
+        if (window.location.protocol === 'file:') {
+            const container = document.querySelector('.container');
+            const warningDiv = document.createElement('div');
+            warningDiv.style.backgroundColor = '#ffc107';
+            warningDiv.style.color = '#333';
+            warningDiv.style.padding = '1rem';
+            warningDiv.style.borderRadius = '5px';
+            warningDiv.style.marginBottom = '1rem';
+            warningDiv.innerHTML = '<strong>Warning:</strong> This page is loaded from the local filesystem (<code>file:///</code>). The LLM models cannot be loaded this way. Please use a local web server (e.g., via <code>python -m http.server</code> or VS Code\'s Live Server extension) and access this page via an <code>http://</code> address.';
+            container.prepend(warningDiv);
+            console.warn("Warning: This page must be served via a local web server for the LLM to load.");
+        }
+
+        // Function to update the analysis progress bar and label
+        function updateAnalysisProgress(value, text) {
+            if (analysisProgressBar) analysisProgressBar.value = value;
+            if (analysisProgressLabel) analysisProgressLabel.textContent = text;
+        }
+
+        // --- UI Element Handlers ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize the AI Logic module with UI references and callbacks
+            initAILogic(
+                { // uiRefs
+                    activeLlmDisplay: activeLlmDisplay,
+                    analysisOutput: analysisOutput,
+                    modelProgressContainer: modelProgressContainer,
+                    modelProgressBar: modelProgressBar,
+                    modelProgressText: modelProgressText,
+                    modelProgressLabel: modelProgressLabel,
+                },
+                { // uiCallbacks
+                    updateAnalysisProgress: updateAnalysisProgress,
+                    updateDropdownStyles: updateDropdownStyles,
+                }
+            );
+
+            // Populate dropdown
+            const modelSelector = document.getElementById('model-selector');
+            const primaryOption = document.createElement('option');
+            primaryOption.value = primaryModelId;
+            primaryOption.textContent = 'Qwen2.5-0.5B (Fast)';
+            modelSelector.appendChild(primaryOption);
+
+            const secondaryOption = document.createElement('option');
+            secondaryOption.value = secondaryModelId;
+            secondaryOption.textContent = 'Llama-3.2-1B (Upgraded)';
+            modelSelector.appendChild(secondaryOption);
+
+            // Start loading primary model in the background
+            initializeLLMEngine();
+        });
+
+        // --- Button Event Handlers ---
+
+        // Analyze Button
+        analyzeBtn.addEventListener('click', async () => { // Made async to await LLM operations
+            const content = logConsole.value;
+            if (!content) {
+                alert("Console is empty. Paste your log content to analyze.");
+                return;
+            }
+
+            // Limit user input to 10,000 lines to avoid performance issues.
+            const MAX_LINES = 10000;
+            let lines = content.split('\n');
+            const originalLines = lines.length;
+
+            if (lines.length > MAX_LINES) {
+                lines = lines.slice(0, MAX_LINES);
+                content = lines.join('\n');
+                const confirmationMessage = `The log content is too large (${originalLines.toLocaleString()} lines) and has been truncated to the first ${MAX_LINES.toLocaleString()} lines. Do you want to proceed with the analysis of the truncated content?`;
+                if (!confirm(confirmationMessage)) {
+                    updateStatus("Analysis cancelled by user.");
+                    return;
+                }
+            }
+
+            if (!getLLMEngine()) {
+                alert("The primary LLM is still loading or has failed. Please select another model from the dropdown.");
+                return;
+            }
+
+            // Show the output container and a "thinking" message
+            analysisOutputContainer.style.display = 'block';
+            analysisOutput.textContent = '';
+            analysisProgressContainer.style.display = 'block';
+            updateAnalysisProgress(10, "Scout pass: Filtering relevant logs...");
+            
+            // Perform pre-filtering with the Web Worker
+            const filteredContent = await filterLogsWithWorker(content);
+
+            let finalLogsToAnalyze;
+            let scoutMessage;
+
+            const filteredLinesCount = filteredContent.split('\n').length;
+            if (filteredContent.trim() === '' && content.trim() !== '') {
+                scoutMessage = "Scout pass found no explicit error keywords. Analyzing full log...";
+                console.log(scoutMessage);
+                finalLogsToAnalyze = content; // Fallback to original content
+            } else {
+                scoutMessage = `Scout pass reduced ${originalLines.toLocaleString()} lines to ${filteredLinesCount.toLocaleString()} relevant lines.`;
+                console.log(scoutMessage);
+                finalLogsToAnalyze = filteredContent;
+            }
+            console.log(scoutMessage);
+            
+            updateAnalysisProgress(40, "Scout pass complete.");
+
+            // --- Intelligent Pipeline ---
+            let finalResultText;
+            let logsForFinalPass = finalLogsToAnalyze;
+            let baseTextForFinalPass = "";
+            let activeModelId = getActiveModelId();
+            let isSummary = false;
+
+            // If primary model is available and scouted logs are large enough, run cleaner pass
+            if (isModelLoaded(primaryModelId) && finalLogsToAnalyze.length > SKIP_CLEANER_THRESHOLD) {
+                updateAnalysisProgress(45, `Cleaner pass: Deduplicating and summarizing errors...`);
+                // --- 2. The Cleaner Pass (Qwen2.5-0.5B) ---
+                let cleanedLogs;
+                try {
+                    cleanedLogs = await cleanLogsWithLLM(finalLogsToAnalyze);
+                    logsForFinalPass = cleanedLogs;
+                    baseTextForFinalPass = `--- Cleaner Pass Summary ---\n${cleanedLogs}`;
+                    analysisOutput.textContent = baseTextForFinalPass;
+                    isSummary = true;
+                } catch (error) {
+                    analysisProgressContainer.style.display = 'none';
+                    analysisOutput.textContent = `Error during Cleaner pass: ${error.message}`;
+                    return;
+                }
+            } else {
+                console.log(`Scout pass result is small enough or primary model not available. Skipping Cleaner pass.`);
+            }
+
+            updateAnalysisProgress(70, `Deep analysis with ${activeModelId}...`);
+            // Estimate total tokens for deep analysis based on typical output length
+            const totalExpectedTokens = isSummary ? 500 : 1500; // Adjust as needed for realistic progress
+
+            // --- Deep Analysis Pass (with selected LLM) ---
+            analysisOutput.textContent = `${baseTextForFinalPass}--- Deep Analysis (Generating with ${activeModelId}) ---`;
+            const solutionResult = await getDeepAnalysisWithLLM(logsForFinalPass, isSummary, totalExpectedTokens);
+            finalResultText = `${baseTextForFinalPass ? baseTextForFinalPass + '\n\n' : ''}--- Deep Analysis ---\n${solutionResult}`;
+            updateAnalysisProgress(100, "Analysis Complete!");
+            setTimeout(() => { // Hide progress bar after a short delay
+                analysisProgressContainer.style.display = 'none';
+            }, 1500);
+
+            // Display final result
+            analysisOutput.textContent = finalResultText;
+            if (activeLlmDisplay && activeModelId) {
+                activeLlmDisplay.textContent = `Model: ${activeModelId}`;
+            }
+        });
+
+        // Clear Button
+        clearBtn.addEventListener('click', () => {
+            logConsole.value = '';
+            analysisOutput.textContent = '';
+            if (activeLlmDisplay) {
+                activeLlmDisplay.textContent = ''; // Clear active LLM display
+            }
+            analysisOutputContainer.style.display = 'none';
+        });
+
+        // Model Selector
+        modelSelector.addEventListener('change', async (event) => {
+            const selectedModelId = event.target.value;
+            await switchActiveModel(selectedModelId);
+        });
+    </script>
+
+</body>
+</html>

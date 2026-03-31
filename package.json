@@ -1,0 +1,12 @@
+{
+  "name": "ns-loganalyzer",
+  "version": "1.0.0",
+  "description": "A dark-theme log analyzer with in-browser LLM.",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler pages dev ."
+  },
+  "devDependencies": {
+    "wrangler": "^3.57.0"
+  }
+}
