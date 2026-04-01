@@ -15,11 +15,11 @@ async function loadEngine(modelId, progressCallback) {
         try {
             const response = await fetch(testUrl, { method: 'HEAD' });
             if (!response.ok) {
-                throw new Error(`Repository 404 Not Found.\nWe looked for: ${testUrl}\nPlease ensure your files are in this exact folder structure on Hugging Face!`);
+                throw new Error(`Local model file not found (404).\nWe looked for: ${testUrl}\nPlease ensure your model files are in this exact folder structure!`);
             }
         } catch (err) {
             if (err.message.includes('404')) throw err;
-            throw new Error(`Network Error: Could not connect to Hugging Face. Is the repository Private?`);
+            throw new Error(`Network Error: Could not fetch local model files. Is your local server running correctly?`);
         }
     }
 
