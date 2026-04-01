@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NS-LogAnalyzer Community</title>
+
+<style>
+:root {
+  --bg: #0d1117;
+  --card: #161b22;
+  --accent: #2ea043;
+  --text: #c9d1d9;
+  --muted: #8b949e;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 260px;
+  background: #010409;
+  border-right: 1px solid #30363d;
+  padding: 15px;
+  overflow-y: auto;
+}
+
+.sidebar h3 {
+  margin-top: 0;
+  color: var(--accent);
+}
+
+.history-item {
+  padding: 10px;
+  margin-bottom: 10px;
+  background: var(--card);
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.history-item:hover {
+  background: #21262d;
+}
+
+/* Main */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.header {
+  padding: 15px;
+  border-bottom: 1px solid #30363d;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* Input */
+.input-area {
+  padding: 20px;
+}
+
+textarea {
+  width: 100%;
+  height: 140px;
+  background: var(--card);
+  border: none;
+  color: white;
+  padding: 10px;
+  border-radius: 6px;
+}
+
+/* Buttons */
+.actions {
+  margin-top: 10px;
+}
+
+button {
+  padding: 10px 15px;
+  margin-right: 10px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+}
+
+.btn-secondary {
+  background: #30363d;
+  color: white;
+}
+
+/* Output */
+.output {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.card {
+  background: var(--card);
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+.label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.value {
+  margin-top: 5px;
+  font-size: 14px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <h3>History</h3>
+  <div id="history"></div>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <div class="header">
+    NS-LogAnalyzer ⚡ Community
+  </div>
+
+  <div class="input-area">
+    <textarea id="log" placeholder="Paste your log here..."></textarea>
+
+    <div class="actions">
+      <button class="btn-primary" onclick="analyze()">Analyze</button>
+      <button class="btn-secondary" onclick="clearAll()">Clear</button>
+      <button class="btn-secondary" onclick="copyOutput()">Copy</button>
+    </div>
+  </div>
+
+  <div class="output" id="output">
+    <div class="label">Result will appear here...</div>
+  </div>
+
+</div>
+
+<script type="module">
+import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+
+let engine;
+let db;
+
+/* INIT MODEL */
+async function initModel() {
+  document.getElementById("output").innerText = "Loading AI model...";
+  engine = await webllm.CreateMLCEngine({
+    model: "qwen2.5-0.5b-q4f16"
+  });
+  document.getElementById("output").innerText = "Ready!";
+}
+initModel();
+
+/* INIT DB */
+const request = indexedDB.open("ns_logs", 1);
+request.onupgradeneeded = e => {
+  db = e.target.result;
+  db.createObjectStore("logs", { keyPath: "id", autoIncrement: true });
+};
+request.onsuccess = e => {
+  db = e.target.result;
+  loadHistory();
+};
+
+/* ANALYZE */
+window.analyze = async function () {
+  const log = document.getElementById("log").value;
+
+  const prompt = `
+Return ONLY:
+Error Type:
+Meaning:
+
+Log:
+${log}
+`;
+
+  const res = await engine.chat.completions.create({
+    messages: [{ role: "user", content: prompt }]
+  });
+
+  const text = res.choices[0].message.content;
+
+  renderOutput(text);
+  saveToDB(log, text);
+};
+
+/* RENDER OUTPUT */
+function renderOutput(text) {
+  const out = document.getElementById("output");
+  out.innerHTML = "";
+
+  text.split("\n").forEach(line => {
+    if (!line.trim()) return;
+
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `<div class="value">${line}</div>`;
+    out.appendChild(card);
+  });
+}
+
+/* SAVE */
+function saveToDB(log, result) {
+  const tx = db.transaction("logs", "readwrite");
+  const store = tx.objectStore("logs");
+
+  store.add({
+    log: log.slice(0, 100),
+    result,
+    time: Date.now()
+  });
+
+  loadHistory();
+}
+
+/* LOAD HISTORY */
+function loadHistory() {
+  const container = document.getElementById("history");
+  container.innerHTML = "";
+
+  const tx = db.transaction("logs", "readonly");
+  const store = tx.objectStore("logs");
+
+  store.openCursor().onsuccess = function (e) {
+    const cursor = e.target.result;
+    if (cursor) {
+      const item = document.createElement("div");
+      item.className = "history-item";
+      item.innerText = cursor.value.log;
+
+      item.onclick = () => renderOutput(cursor.value.result);
+
+      container.appendChild(item);
+      cursor.continue();
+    }
+  };
+}
+
+/* UTIL */
+window.clearAll = () => {
+  document.getElementById("log").value = "";
+  document.getElementById("output").innerHTML = "";
+};
+
+window.copyOutput = () => {
+  navigator.clipboard.writeText(document.getElementById("output").innerText);
+};
+</script>
+
+</body>
+</html>
