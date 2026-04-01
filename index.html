@@ -55,8 +55,6 @@
             SKIP_CLEANER_THRESHOLD
         } from './engine/logic/ai/ai_logic.js?v=1.0.1';
 
-        const filterWorker = new Worker('log-filter-worker.js');
-
         function updateDropdownStyles() {
             const modelSelector = document.getElementById('model-selector');
             if (!modelSelector) return;
@@ -71,37 +69,39 @@
         }
 
         /**
-         * Sends data to the web worker for filtering.
-         * It handles a string for direct processing.
+         * Filters logs locally using JavaScript (replaces the Rust WASM worker).
          * @param {string} logs The log data to process.
-         * @returns {Promise<string>} A promise that resolves with the filtered log content.
+         * @returns {string} The filtered log content.
          */
-        function filterLogsWithWorker(logs) {
-            return new Promise((resolve, reject) => {
-                const onMessage = (event) => {
-                    filterWorker.removeEventListener('message', onMessage);
-                    filterWorker.removeEventListener('error', onError);
-                    if (event.data && event.data.byteLength > 0) {
-                        const decoder = new TextDecoder();
-                        resolve(decoder.decode(event.data));
-                    } else {
-                        resolve('');
+        function filterLogs(logs) {
+            const errorStartRegex = /\b(error|exception|failed|panic|fatal|unhandled|uncaught|traceback)\b/i;
+            const continuationRegex = /^\s+at\s|^\s{2,}|^\t|Caused by:/;
+
+            const snippets = [];
+            let currentSnippet = [];
+
+            const lines = logs.split('\n');
+            for (const line of lines) {
+                if (errorStartRegex.test(line)) {
+                    if (currentSnippet.length > 0) {
+                        snippets.push(currentSnippet.join('\n'));
                     }
-                };
+                    currentSnippet = [line];
+                } else if (currentSnippet.length > 0) {
+                    if (continuationRegex.test(line) || line.trim() === '') {
+                        currentSnippet.push(line);
+                    } else {
+                        snippets.push(currentSnippet.join('\n'));
+                        currentSnippet = [];
+                    }
+                }
+            }
 
-                const onError = (error) => {
-                    filterWorker.removeEventListener('message', onMessage);
-                    filterWorker.removeEventListener('error', onError);
-                    reject(error);
-                };
+            if (currentSnippet.length > 0) {
+                snippets.push(currentSnippet.join('\n'));
+            }
 
-                filterWorker.addEventListener('message', onMessage);
-                filterWorker.addEventListener('error', onError);
-
-                const encoder = new TextEncoder();
-                const buffer = encoder.encode(logs).buffer;
-                filterWorker.postMessage(buffer, [buffer]);
-            });
+            return snippets.join('\n\n---\n\n');
         }
         // --- End AI Logic ---
 
@@ -229,8 +229,8 @@
             analysisProgressContainer.style.display = 'block';
             updateAnalysisProgress(10, "Scout pass: Filtering relevant logs...");
             
-            // Perform pre-filtering with the Web Worker
-            const filteredContent = await filterLogsWithWorker(content);
+            // Perform pre-filtering locally
+            const filteredContent = filterLogs(content);
 
             let finalLogsToAnalyze;
             let scoutMessage;
