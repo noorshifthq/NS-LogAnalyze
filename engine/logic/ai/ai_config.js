@@ -8,21 +8,22 @@ export const primaryModelId = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC"; // Qwen2.5-0.
 export const secondaryModelId = "Llama-3.2-1B-Instruct-q4f32_1-MLC"; // Llama-3.2 as the secondary LLM
 
 // Base URL for the model repository
-export const HF_BASE_URL = "https://huggingface.co/mlc-ai/";
+// export const HF_BASE_URL = "https://huggingface.co/mlc-ai/"; // Remote repository
+export const HF_BASE_URL = "engine/core/"; // Local repository
 
 // Application Model Configuration
 export const appConfig = {
     "model_list": [
         {
-            "model": `${HF_BASE_URL}${primaryModelId}/resolve/main/`,
-            "model_url": `${HF_BASE_URL}${primaryModelId}/resolve/main/`,
+            "model": `${HF_BASE_URL}${primaryModelId}/`,
+            "model_url": `${HF_BASE_URL}${primaryModelId}/`,
             "model_id": primaryModelId,
             "model_lib": prebuiltAppConfig.model_list.find(m => m.model_id === primaryModelId)?.model_lib,
             "local_id": `${primaryModelId}-v${APP_VERSION}`
         }
         // {
-        //     "model": `${HF_BASE_URL}${secondaryModelId}/resolve/main/`,
-        //     "model_url": `${HF_BASE_URL}${secondaryModelId}/resolve/main/`,
+        //     "model": `${HF_BASE_URL}${secondaryModelId}/`,
+        //     "model_url": `${HF_BASE_URL}${secondaryModelId}/`,
         //     "model_id": secondaryModelId,
         //     "model_lib": prebuiltAppConfig.model_list.find(m => m.model_id === secondaryModelId)?.model_lib,
         //     "local_id": `${secondaryModelId}-v${APP_VERSION}`
