@@ -19,14 +19,14 @@ export const appConfig = {
             "model_id": primaryModelId,
             "model_lib": prebuiltAppConfig.model_list.find(m => m.model_id === primaryModelId)?.model_lib,
             "local_id": `${primaryModelId}-v${APP_VERSION}`
-        },
-        {
-            "model": `${HF_BASE_URL}${secondaryModelId}/resolve/main/`,
-            "model_url": `${HF_BASE_URL}${secondaryModelId}/resolve/main/`,
-            "model_id": secondaryModelId,
-            "model_lib": prebuiltAppConfig.model_list.find(m => m.model_id === secondaryModelId)?.model_lib,
-            "local_id": `${secondaryModelId}-v${APP_VERSION}`
         }
+        // {
+        //     "model": `${HF_BASE_URL}${secondaryModelId}/resolve/main/`,
+        //     "model_url": `${HF_BASE_URL}${secondaryModelId}/resolve/main/`,
+        //     "model_id": secondaryModelId,
+        //     "model_lib": prebuiltAppConfig.model_list.find(m => m.model_id === secondaryModelId)?.model_lib,
+        //     "local_id": `${secondaryModelId}-v${APP_VERSION}`
+        // }
     ],
 };
 

@@ -186,10 +186,11 @@
         primaryOption.textContent = 'Qwen2.5-0.5B (Fast)';
         modelSelector.appendChild(primaryOption);
 
-        const secondaryOption = document.createElement('option');
-        secondaryOption.value = secondaryModelId;
-        secondaryOption.textContent = 'Llama-3.2-1B (Upgraded)';
-        modelSelector.appendChild(secondaryOption);
+        // Commenting out the secondary model from the UI dropdown
+        // const secondaryOption = document.createElement('option');
+        // secondaryOption.value = secondaryModelId;
+        // secondaryOption.textContent = 'Llama-3.2-1B (Upgraded)';
+        // modelSelector.appendChild(secondaryOption);
 
         // Start loading primary model in the background
         initializeLLMEngine();
