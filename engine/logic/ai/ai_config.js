@@ -9,7 +9,7 @@ export const primaryModelId = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC"; // Qwen2.5-0.
 
 // Base URL for the model repository
 // export const HF_BASE_URL = "https://huggingface.co/mlc-ai/"; // Remote repository
-export const HF_BASE_URL = "./engine/core/"; // Local repository (absolute path)
+export const HF_BASE_URL = "/engine/core/"; // Local repository (absolute path)
 
 // Application Model Configuration
 export const appConfig = {
