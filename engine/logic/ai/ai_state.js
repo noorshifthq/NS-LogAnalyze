@@ -8,9 +8,9 @@ export const state = {
     llmEngineLoaded: false,
     activeModelId: null,
     primaryLlmEngine: null,
-    secondaryLlmEngine: null,
-    isSecondaryLoading: false,
-    isSecondaryLoaded: false,
+    // secondaryLlmEngine: null,
+    // isSecondaryLoading: false,
+    // isSecondaryLoaded: false,
 };
 
 // This object holds references to UI elements and callbacks.
@@ -41,7 +41,8 @@ export function initAILogic(uiRefs, uiCallbacks) {
     ui.updateDropdownStylesCallback = uiCallbacks.updateDropdownStyles;
     ui.setAnalyzeButtonStateCallback = uiCallbacks.setAnalyzeButtonState;
 
-    console.log(`Configured to use ${config.primaryModelId} as primary and ${config.secondaryModelId} as secondary.`);
+    // console.log(`Configured to use ${config.primaryModelId} as primary and ${config.secondaryModelId} as secondary.`);
+    console.log(`Configured to use ${config.primaryModelId} as primary.`);
 }
 
 // --- Getters for state ---
@@ -55,6 +56,6 @@ export function getLLMEngine() {
 
 export function isModelLoaded(modelId) {
     if (modelId === config.primaryModelId) return !!state.primaryLlmEngine;
-    if (modelId === config.secondaryModelId) return state.isSecondaryLoaded;
+    // if (modelId === config.secondaryModelId) return state.isSecondaryLoaded;
     return false;
 }

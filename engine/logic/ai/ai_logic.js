@@ -6,7 +6,7 @@
 // AI Configuration
 export {
     primaryModelId,
-    secondaryModelId,
+    // secondaryModelId,
     appConfig,
     SKIP_CLEANER_THRESHOLD
 } from './ai_config.js';
@@ -22,7 +22,7 @@ export {
 // Core AI Engine Management
 export {
     initializeLLMEngine,
-    loadSecondaryInBackground,
+    // loadSecondaryInBackground,
     switchActiveModel
 } from './ai_core.js';
 
