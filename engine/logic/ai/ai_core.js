@@ -8,24 +8,49 @@ import { state, ui } from './ai_state.js';
 async function loadEngine(modelId, progressCallback) {
     console.log(`Attempting to load ${modelId} from Hugging Face...`);
 
-    // PRE-FLIGHT CHECK: Verify the Hugging Face URL is reachable before Web-LLM crashes the Cache API.
-    const modelConfig = config.appConfig.model_list.find(m => m.model_id === modelId);
+    // Create a deep copy of the appConfig to modify it locally. This prevents side effects.
+    const localAppConfig = JSON.parse(JSON.stringify(config.appConfig));
+    const modelConfig = localAppConfig.model_list.find(m => m.model_id === modelId);
+
+    // PRE-FLIGHT CHECK & PATH CORRECTION
     if (modelConfig) {
-        const testUrl = `${modelConfig.model}mlc-chat-config.json`;
+        const repoName = "NS-LogAnalyze/";
+        // If the model path incorrectly includes the repo name, strip it to make it a proper relative path.
+        if (modelConfig.model_url.startsWith(repoName)) {
+            modelConfig.model_url = modelConfig.model_url.substring(repoName.length);
+        }
+
+        // The web-llm library expects an absolute URL. We construct one here
+        // based on the current page's location, which resolves the relative path correctly.
+        let absoluteModelUrl = new URL(modelConfig.model_url, window.location.href).href;
+        // Ensure the URL ends with a slash to be treated as a directory.
+        if (!absoluteModelUrl.endsWith('/')) {
+            absoluteModelUrl += '/';
+        }
+
+        const testUrl = `${absoluteModelUrl}mlc-chat-config.json`;
         try {
+            // This pre-flight check ensures the config is accessible before handing off to web-llm.
             const response = await fetch(testUrl, { method: 'HEAD' });
             if (!response.ok) {
+                // The error message now shows the corrected path it looked for.
                 throw new Error(`Local model file not found (404).\nWe looked for: ${testUrl}\nPlease ensure your model files are in this exact folder structure!`);
             }
         } catch (err) {
             if (err.message.includes('404')) throw err;
             throw new Error(`Network Error: Could not fetch local model files. Is your local server running correctly?`);
         }
+
+        // By pointing directly to the mlc-chat-config.json, we instruct web-llm
+        // to use this as the entry point. This avoids a library issue where it might
+        // incorrectly treat the folder URL as a Hugging Face repo, which causes the "/resolve/main/" error.
+        modelConfig.model = testUrl;
+        modelConfig.model_url = testUrl;
     }
 
     return await CreateMLCEngine(modelId, { 
         initProgressCallback: progressCallback,
-        appConfig: config.appConfig
+        appConfig: localAppConfig // Use the corrected config
     });
 }
 
